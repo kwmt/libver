@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
+	"github.com/pkg/errors"
 )
 
 const (
@@ -18,7 +19,7 @@ func main() {
 	filepath := "build.gradle"
 	urls, err := parseFile(filepath)
 	if err != nil {
-		fmt.Println(err)
+		fmt.Printf("%+v", err)
 	}
 
 	chStr := make(chan string, len(urls))
@@ -47,7 +48,7 @@ func parseFile(filePath string) ([]string, error) {
 
 	fp, err := os.Open(filePath)
 	if err != nil {
-		return []string{}, err
+		return []string{}, errors.Wrap(err, "open failed")
 	}
 	defer fp.Close()
 	scanner := bufio.NewScanner(fp)
@@ -63,7 +64,7 @@ func parseFile(filePath string) ([]string, error) {
 		}
 	}
 	if err := scanner.Err(); err != nil {
-		return []string{}, err
+		return []string{}, errors.Wrap(err, "scanner failed")
 	}
 	return urls, nil
 
@@ -73,8 +74,7 @@ func parseFile(filePath string) ([]string, error) {
 func fetchReleaseVersion(url string, c chan string, e chan error) {
 	doc, err := goquery.NewDocument(url)
 	if err != nil {
-		fmt.Print("url scarapping failed")
-		e <- err
+		e <- errors.Wrap(err, "url scarapping failed")
 	}
 
 	// FIXME: https://github.com/google/gson/releases このようにlatestが無いパターンがある

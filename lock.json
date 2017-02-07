@@ -1,5 +1,5 @@
 {
-    "memo": "e769911883b17e46e7a71da7669cb84f03e7660c4dff8031d3e41b94005f61c1",
+    "memo": "2c6e7f77db8ba0d3ee8edfc94ddedc4c9f6f57bb708ffdc9f21bac31b37ff2cb",
     "projects": [
         {
             "name": "github.com/PuerkitoBio/goquery",
@@ -13,6 +13,14 @@
             "name": "github.com/andybalholm/cascadia",
             "branch": "master",
             "revision": "349dd0209470eabd9514242c688c403c0926d266",
+            "packages": [
+                "."
+            ]
+        },
+        {
+            "name": "github.com/pkg/errors",
+            "version": "v0.8.0",
+            "revision": "645ef00459ed84a119197bfb8d8205042c6df63d",
             "packages": [
                 "."
             ]
