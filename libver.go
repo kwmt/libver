@@ -15,18 +15,45 @@ const (
 )
 
 func main() {
-	// `// @link url` このようになっていたら、`url`を取り出す
-	urls := make([]string, 0)
-
-	fp, err := os.Open("app/build.gradle")
+	filepath := "build.gradle"
+	urls, err := parseFile(filepath)
 	if err != nil {
 		fmt.Println(err)
+	}
+	
+	chStr := make(chan string, len(urls))
+	chErr := make(chan error, len(urls))
+	for _, u := range urls {
+		go fetchReleaseVersion(u+"/releases", chStr, chErr)
+	}
+
+	func() {
+		for {
+			select {
+			case str := <-chStr:
+				fmt.Println(str)
+			case e := <-chErr:
+				fmt.Println(e)
+			case <-time.After(10 * time.Second):
+				return
+			}
+		}
+	}()
+}
+
+// `// @link url` このようになっていたら、`url`を取り出す
+func parseFile(filePath string) ([]string, error) {
+	urls := make([]string, 0)
+
+	fp, err := os.Open(filePath)
+	if err != nil {
+		return []string{}, err
 	}
 	defer fp.Close()
 	scanner := bufio.NewScanner(fp)
 	for scanner.Scan() {
 		target := scanner.Text()
-		if strings.Contains(scanner.Text(), trigger) {
+		if strings.Contains(target, trigger) {
 			trimmedTarget := strings.Trim(target, " ")
 			splitTargets := strings.Split(trimmedTarget, " ")
 			if len(splitTargets) > 2 {
@@ -36,32 +63,13 @@ func main() {
 		}
 	}
 	if err := scanner.Err(); err != nil {
-		fmt.Println(err)
+		return []string{}, err
 	}
-
-	// url一覧からバージョンを取得する
-	c := make(chan string, len(urls))
-	e := make(chan error, len(urls))
-	for _, u := range urls {
-		go fetchReleaseVersion(u+"/releases", c, e)
-	}
-
-wait:
-	for {
-		select {
-		case a := <-c:
-			fmt.Println(a)
-		case errrr := <-e:
-			fmt.Println(errrr)
-		case <-time.After(10 * time.Second):
-			break wait
-		}
-	}
-
-	return
+	return urls, nil
 
 }
 
+// url一覧からバージョンを取得する
 func fetchReleaseVersion(url string, c chan string, e chan error) {
 	doc, err := goquery.NewDocument(url)
 	if err != nil {
