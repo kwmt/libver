@@ -1,0 +1,29 @@
+{
+    "memo": "e769911883b17e46e7a71da7669cb84f03e7660c4dff8031d3e41b94005f61c1",
+    "projects": [
+        {
+            "name": "github.com/PuerkitoBio/goquery",
+            "version": "v1.0.2",
+            "revision": "3cb3b8656883c2cc3deb9c643d93ea6e5157e425",
+            "packages": [
+                "."
+            ]
+        },
+        {
+            "name": "github.com/andybalholm/cascadia",
+            "branch": "master",
+            "revision": "349dd0209470eabd9514242c688c403c0926d266",
+            "packages": [
+                "."
+            ]
+        },
+        {
+            "name": "golang.org/x/net",
+            "branch": "master",
+            "revision": "236b8f043b920452504e263bc21d354427127473",
+            "packages": [
+                "html"
+            ]
+        }
+    ]
+}
