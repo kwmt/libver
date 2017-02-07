@@ -1,1 +1,2 @@
+[![wercker status](https://app.wercker.com/status/6d9e484f12bbb5152302b39e02593349/s/master "wercker status")](https://app.wercker.com/project/byKey/6d9e484f12bbb5152302b39e02593349)
 [![Go Report Card](https://goreportcard.com/badge/github.com/kwmt/libver)](https://goreportcard.com/report/github.com/kwmt/libver)
