@@ -1,0 +1,1 @@
+[![Go Report Card](https://goreportcard.com/badge/github.com/kwmt/libver)](https://goreportcard.com/report/github.com/kwmt/libver)
