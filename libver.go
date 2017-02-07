@@ -20,7 +20,7 @@ func main() {
 	if err != nil {
 		fmt.Println(err)
 	}
-	
+
 	chStr := make(chan string, len(urls))
 	chErr := make(chan error, len(urls))
 	for _, u := range urls {
