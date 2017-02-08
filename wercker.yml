@@ -37,7 +37,7 @@ build:
     - script:
         name: go build
         code: |
-          go build ./...
+          go build $(go list ./... | grep -v /vendor/ )
 
     # Test the project
     - script:
