@@ -16,10 +16,22 @@ const (
 )
 
 func main() {
-	filepath := "build.gradle"
+	if len(os.Args) < 2 {
+		fmt.Println("ファイルパスを指定してください。")
+		return
+	}
+
+
+	filepath := os.Args[1]
 	urls, err := parseFile(filepath)
 	if err != nil {
 		fmt.Printf("%+v", err)
+		return
+	}
+
+	if len(urls) == 0 {
+		fmt.Println("urlが見つかりませんでした。")
+		return
 	}
 
 	chStr := make(chan string, len(urls))
