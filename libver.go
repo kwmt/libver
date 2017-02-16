@@ -5,62 +5,78 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"time"
 
-	"github.com/PuerkitoBio/goquery"
 	"github.com/pkg/errors"
 )
 
 const (
-	trigger = "@link"
+	trigger = "compile"
 )
 
+type Target struct {
+	GroupID    string
+	ArtifactID string
+	Version    string
+}
+
 func main() {
+
 	if len(os.Args) < 2 {
 		fmt.Println("ファイルパスを指定してください。")
 		return
 	}
 
-
 	filepath := os.Args[1]
-	urls, err := parseFile(filepath)
+	dependencies, err := parseFile(filepath)
 	if err != nil {
 		fmt.Printf("%+v", err)
 		return
 	}
 
-	if len(urls) == 0 {
-		fmt.Println("urlが見つかりませんでした。")
+	if len(dependencies) == 0 {
+		fmt.Println("dependency libraryが見つかりませんでした。")
 		return
 	}
 
-	chStr := make(chan string, len(urls))
-	chErr := make(chan error, len(urls))
-	for _, u := range urls {
-		go fetchReleaseVersion(u+"/releases", chStr, chErr)
+	c, err := setupClient()
+	if err != nil {
+		fmt.Println(err)
+		return
 	}
 
-	func() {
-		for {
-			select {
-			case str := <-chStr:
-				fmt.Println(str)
-			case e := <-chErr:
-				fmt.Println(e)
-			case <-time.After(10 * time.Second):
-				return
-			}
+	for _, target := range dependencies {
+
+		results, err := c.SearchMavenPackage(target.GroupID, target.ArtifactID)
+		if err != nil {
+			fmt.Println(target.GroupID, err)
+			continue
 		}
-	}()
+		r := *results
+		if len(r) > 0 {
+			fmt.Printf("%s:%s\n", r[0].Name, r[0].LatestVesrsion)
+		}
+	}
 }
 
-// `// @link url` このようになっていたら、`url`を取り出す
-func parseFile(filePath string) ([]string, error) {
-	urls := make([]string, 0)
+func setupClient() (*Client, error) {
+	username := os.Getenv("BINTRAY_API_USERNAME")
+	if username == "" {
+		return nil, errors.New("環境変数 BINTRAY_API_USERNAME が設定されていません。")
+	}
+	password := os.Getenv("BINTRAY_API_PASSWORD")
+	if username == "" {
+		return nil, errors.New("環境変数 BINTRAY_API_PASSWORD が設定されていません。")
+	}
+	return NewClient(username, password), nil
+}
+
+// 例えば`compile 'com.google.code.gson:gson:2.7'` このようになっていたら com.google.code.gson、gson、2.7に分けたリストを返す。
+func parseFile(filePath string) ([]Target, error) {
+	targets := make([]Target, 0)
 
 	fp, err := os.Open(filePath)
 	if err != nil {
-		return []string{}, errors.Wrap(err, "open failed")
+		return []Target{}, errors.Wrap(err, "open failed")
 	}
 	defer fp.Close()
 	scanner := bufio.NewScanner(fp)
@@ -69,43 +85,43 @@ func parseFile(filePath string) ([]string, error) {
 		if strings.Contains(target, trigger) {
 			trimmedTarget := strings.Trim(target, " ")
 			splitTargets := strings.Split(trimmedTarget, " ")
-			if len(splitTargets) > 2 {
-				url := splitTargets[2]
-				urls = append(urls, url)
+			if len(splitTargets) > 1 {
+				if !strings.EqualFold(splitTargets[0], trigger) {
+					continue
+				}
+				dependency := splitTargets[1]
+				target := splitDependency(dependency)
+				targets = append(targets, target)
 			}
 		}
 	}
 	if err := scanner.Err(); err != nil {
-		return []string{}, errors.Wrap(err, "scanner failed")
+		return []Target{}, errors.Wrap(err, "scanner failed")
 	}
-	return urls, nil
+	return targets, nil
 
 }
 
-// url一覧からバージョンを取得する
-func fetchReleaseVersion(url string, c chan string, e chan error) {
-	doc, err := goquery.NewDocument(url)
-	if err != nil {
-		e <- errors.Wrap(err, "url scarapping failed")
+func splitDependency(s string) Target {
+	t := Target{}
+	split := strings.Split(s, ":")
+	if len(split) < 3 {
+		return t
 	}
+	t.GroupID = split[0][1:] // "com.google.firebase などのようにダブル・シングルクォートがあるので取り除く
+	t.ArtifactID = split[1]
+	t.Version = split[2][:len(split[2])-1] // 0.5" のようにダブル・シングルクォートがあるので取り除く
+	return t
+}
 
-	// FIXME: https://github.com/google/gson/releases このようにlatestが無いパターンがある
+// Bintrayからパッケージ情報を取得する
+func fetchPackage(client *Client, target Target, c chan []ResponseMavenPackageSearch, e chan error) {
 
-	doc.Find("div.release-meta").EachWithBreak(func(_ int, s *goquery.Selection) bool {
-
-		latest := s.FilterFunction(func(_ int, s *goquery.Selection) bool {
-			return s.Find("span").HasClass("latest")
-		})
-
-		if latest == nil {
-			return true
-		}
-
-		t := latest.Find("ul").First().Find("span").Text()
-		//fmt.Println(url)
-		ver := fmt.Sprintf("%s:%s", url, t)
-		c <- ver
-		return false
-
-	})
+	results, err := client.SearchMavenPackage(target.GroupID, target.ArtifactID)
+	//fmt.Println(target.GroupID, target.ArtifactID)
+	if err != nil {
+		e <- errors.Wrap(err, "SearchMavenPackage failed")
+		return
+	}
+	c <- *results
 }
