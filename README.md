@@ -52,6 +52,32 @@ For example on Wercker CI below:
 
 <img width="558" alt="2017-02-17 21 43 13" src="https://cloud.githubusercontent.com/assets/1450486/23065688/3282fe64-f55a-11e6-9ee9-ed76df8e3e62.png">
 
+### wercker sample
+
+https://github.com/kwmt/GitHubSearch/blob/master/wercker.yml#L14..L33
+
+
+```
+    - script:
+        name: install git
+        code: |
+          sudo apt-get -y install git
+    - script:
+        name: install golang
+        code: |
+          wget https://storage.googleapis.com/golang/go1.8.linux-amd64.tar.gz
+          sudo tar -xvf go1.8.linux-amd64.tar.gz
+          sudo mv go /usr/local
+          export GOROOT=/usr/local/go
+          export GOPATH=$PWD
+          export PATH=$GOPATH/bin:$GOROOT/bin:$PATH
+          go version
+    - script:
+        name: check dependencies library version
+        code: |
+          go get github.com/kwmt/libver
+          libver app/build.gradle
+```
 
 ## TODO
 
