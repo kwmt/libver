@@ -7,6 +7,13 @@ This is a tool that fetch latest library version in build.gradle file of Android
 
 ## Usage 
 
+You need to set two environment variables.
+
+* `BINTRAY_API_USERNAME`
+* `BINTRAY_API_PASSWORD`
+
+user’s name of [bintray](https://bintray.com)  as username and the API key as the password. You can obtain your API key from [bintray profile page](https://bintray.com/profile/edit).
+
 In your Android project top directory, 
 
 ```
