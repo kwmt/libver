@@ -93,13 +93,13 @@ func run(filepath string) {
 }
 
 func setupClient() (*Client, error) {
-	username := os.Getenv("BINTRAY_API_USERNAME")
+	username := os.Getenv("BINTRAY_USER")
 	if username == "" {
-		return nil, errors.New("Environment variabl BINTRAY_API_USERNAME is not set.")
+		return nil, errors.New("Environment variabl BINTRAY_USER is not set.")
 	}
-	password := os.Getenv("BINTRAY_API_PASSWORD")
+	password := os.Getenv("BINTRAY_KEY")
 	if username == "" {
-		return nil, errors.New("Environment variabl BINTRAY_API_PASSWORD is not set.")
+		return nil, errors.New("Environment variabl BINTRAY_KEY is not set.")
 	}
 	return NewClient(username, password), nil
 }
