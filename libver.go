@@ -11,9 +11,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-const (
-	trigger = "compile"
-)
+var triggers = []string{"compile", "classpath"}
 
 type Target struct {
 	GroupID    string
@@ -27,8 +25,11 @@ func main() {
 		fmt.Println("Please specify a build.gradle file path.")
 		return
 	}
+	run(os.Args[1])
 
-	filepath := os.Args[1]
+}
+
+func run(filepath string) {
 	dependencies, err := parseFile(filepath)
 	if err != nil {
 		fmt.Printf("Parse error. %+v", err)
@@ -115,12 +116,12 @@ func parseFile(filePath string) ([]Target, error) {
 	scanner := bufio.NewScanner(fp)
 	for scanner.Scan() {
 		target := strings.ToLower(scanner.Text())
-		if strings.Contains(target, trigger) {
+		if containTriggers(target, triggers) {
 			trimmedTarget := strings.Trim(target, " ")
 			splitTargets := strings.Split(trimmedTarget, " ")
 			if len(splitTargets) > 1 {
 				// complie or androidTestCompile etc (exclude compileSdkVersion etc)
-				if !strings.HasSuffix(splitTargets[0], trigger) {
+				if !hasSuffixTriggers(splitTargets[0], triggers) {
 					continue
 				}
 				target := splitDependency(splitTargets[1])
@@ -137,6 +138,24 @@ func parseFile(filePath string) ([]Target, error) {
 		return []Target{}, errors.Wrap(err, "Failed to scanner.")
 	}
 	return targets, nil
+}
+
+func containTriggers(target string, triggers []string) bool {
+	for _, trigger := range triggers {
+		if strings.Contains(target, trigger) {
+			return true
+		}
+	}
+	return false
+}
+
+func hasSuffixTriggers(target string, triggers []string) bool {
+	for _, trigger := range triggers {
+		if strings.HasSuffix(target, trigger) {
+			return true
+		}
+	}
+	return false
 }
 
 // For example, split 'com.google.code.gson:gson:2.7' by ":".
