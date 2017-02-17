@@ -14,7 +14,7 @@ $ go get github.com/kwmt/libver
 $ libver app/build.gradle
 ```
 
-for [app/build](https://github.com/kwmt/libver/blob/master/testdata/app/build.gradle) ,output like below:
+for [app/build](https://github.com/kwmt/libver/blob/master/testdata/app/build.gradle), output like below:
 ```
 junit:junit:4.12-beta-3
 com.android.support:25.1.1
