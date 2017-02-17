@@ -20,7 +20,6 @@ func (c *testClient) Do(req *http.Request) (*http.Response, error) {
 	return c.resp, c.err
 }
 
-
 func TestSearchMavenPackage(t *testing.T) {
 	const dummyKey = "dummyKey"
 
@@ -78,4 +77,3 @@ func TestSearchMavenPackage(t *testing.T) {
 	}
 
 }
-

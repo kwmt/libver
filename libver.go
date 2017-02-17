@@ -4,8 +4,10 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"regexp"
 	"strings"
 
+	"github.com/PuerkitoBio/goquery"
 	"github.com/pkg/errors"
 )
 
@@ -22,29 +24,59 @@ type Target struct {
 func main() {
 
 	if len(os.Args) < 2 {
-		fmt.Println("ファイルパスを指定してください。")
+		fmt.Println("Please specify a build.gradle file path.")
 		return
 	}
 
 	filepath := os.Args[1]
 	dependencies, err := parseFile(filepath)
 	if err != nil {
-		fmt.Printf("%+v", err)
+		fmt.Printf("Parse error. %+v", err)
 		return
 	}
 
 	if len(dependencies) == 0 {
-		fmt.Println("dependency libraryが見つかりませんでした。")
+		fmt.Println("Not found dependency library.")
 		return
 	}
 
 	c, err := setupClient()
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println("Failed to setup.", err)
 		return
 	}
 
+	isFetchedSupportLibraryVersion := false
+
 	for _, target := range dependencies {
+
+		switch target.GroupID {
+		case "com.android.support":
+			if isFetchedSupportLibraryVersion {
+				continue
+			}
+			mavenPackage, err := fetchLatestSupportLibraryVersion()
+			if err != nil {
+				fmt.Println(err)
+				continue
+			}
+			fmt.Printf("%s:%s\n", mavenPackage.Name, mavenPackage.LatestVesrsion)
+			isFetchedSupportLibraryVersion = true
+			continue
+
+		// TODO: Localの$ANDROID_HOME/extrasにあるバージョンと、
+		// https://dl.google.com/android/repository/addon2-1.xmlから
+		// 取得できるバージョンを取得してチェックしたい
+		case "com.android.support.test",
+			"com.android.databinding",
+			"com.google.android",
+			"com.google.firebase",
+			"com.google.android.gms",
+			"com.google.android.support",
+			"com.google.android.wearable",
+			"com.android.support.constraint":
+			continue
+		}
 
 		results, err := c.SearchMavenPackage(target.GroupID, target.ArtifactID)
 		if err != nil {
@@ -61,52 +93,58 @@ func main() {
 func setupClient() (*Client, error) {
 	username := os.Getenv("BINTRAY_API_USERNAME")
 	if username == "" {
-		return nil, errors.New("環境変数 BINTRAY_API_USERNAME が設定されていません。")
+		return nil, errors.New("Environment variabl BINTRAY_API_USERNAME is not set.")
 	}
 	password := os.Getenv("BINTRAY_API_PASSWORD")
 	if username == "" {
-		return nil, errors.New("環境変数 BINTRAY_API_PASSWORD が設定されていません。")
+		return nil, errors.New("Environment variabl BINTRAY_API_PASSWORD is not set.")
 	}
 	return NewClient(username, password), nil
 }
 
 // 例えば`compile 'com.google.code.gson:gson:2.7'` このようになっていたら com.google.code.gson、gson、2.7に分けたリストを返す。
 func parseFile(filePath string) ([]Target, error) {
-	targets := make([]Target, 0)
-
 	fp, err := os.Open(filePath)
 	if err != nil {
-		return []Target{}, errors.Wrap(err, "open failed")
+		return []Target{}, errors.Wrap(err, "Failed to open file.")
 	}
 	defer fp.Close()
+
+	targets := make([]Target, 0)
+
 	scanner := bufio.NewScanner(fp)
 	for scanner.Scan() {
-		target := scanner.Text()
+		target := strings.ToLower(scanner.Text())
 		if strings.Contains(target, trigger) {
 			trimmedTarget := strings.Trim(target, " ")
 			splitTargets := strings.Split(trimmedTarget, " ")
 			if len(splitTargets) > 1 {
-				if !strings.EqualFold(splitTargets[0], trigger) {
+				// complie or androidTestCompile etc (exclude compileSdkVersion etc)
+				if !strings.HasSuffix(splitTargets[0], trigger) {
 					continue
 				}
-				dependency := splitTargets[1]
-				target := splitDependency(dependency)
-				targets = append(targets, target)
+				target := splitDependency(splitTargets[1])
+				// target.GroupIDに以下が入っていたら無視する
+				// com.android.support
+				if target == nil {
+					continue
+				}
+				targets = append(targets, *target)
 			}
 		}
 	}
 	if err := scanner.Err(); err != nil {
-		return []Target{}, errors.Wrap(err, "scanner failed")
+		return []Target{}, errors.Wrap(err, "Failed to scanner.")
 	}
 	return targets, nil
-
 }
 
-func splitDependency(s string) Target {
-	t := Target{}
+// For example, split 'com.google.code.gson:gson:2.7' by ":".
+func splitDependency(s string) *Target {
+	t := new(Target)
 	split := strings.Split(s, ":")
 	if len(split) < 3 {
-		return t
+		return nil
 	}
 	t.GroupID = split[0][1:] // "com.google.firebase などのようにダブル・シングルクォートがあるので取り除く
 	t.ArtifactID = split[1]
@@ -114,14 +152,47 @@ func splitDependency(s string) Target {
 	return t
 }
 
-// Bintrayからパッケージ情報を取得する
+// unused. Fetch maven package info with goroutine.
 func fetchPackage(client *Client, target Target, c chan []ResponseMavenPackageSearch, e chan error) {
 
 	results, err := client.SearchMavenPackage(target.GroupID, target.ArtifactID)
 	//fmt.Println(target.GroupID, target.ArtifactID)
 	if err != nil {
-		e <- errors.Wrap(err, "SearchMavenPackage failed")
+		e <- errors.Wrap(err, "Failed to search maven package")
 		return
 	}
 	c <- *results
+}
+
+// Fetch latest version from android developr Recent Support Library Revisions page https://developer.android.com/topic/libraries/support-library/revisions.html?hl=en
+func fetchLatestSupportLibraryVersion() (*MavenPackage, error) {
+	url := "https://developer.android.com/topic/libraries/support-library/revisions.html?hl=en"
+	doc, err := goquery.NewDocument(url)
+
+	if err != nil {
+		return nil, errors.Wrap(err, "url scarapping failed")
+	}
+
+	mavenPackage := new(MavenPackage)
+	mavenPackage.Name = "com.android.support"
+
+	doc.Find("#body-content > div.jd-descr > h2").EachWithBreak(func(_ int, s *goquery.Selection) bool {
+		//val, _ := s.Attr("id")
+		revText := s.First().Text() // Revision 25.1.1
+		splitRevText := strings.Split(revText, " ")
+
+		if len(splitRevText) < 2 {
+			fmt.Println(splitRevText)
+			return false
+		}
+
+		var validVersion = regexp.MustCompile(`^[0-9]+\.[0-9]+\.[0-9]+$`)
+		if validVersion.MatchString(splitRevText[1]) {
+			mavenPackage.LatestVesrsion = splitRevText[1]
+			return false
+		}
+		return false
+
+	})
+	return mavenPackage, nil
 }
