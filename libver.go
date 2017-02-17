@@ -86,6 +86,7 @@ func run(filepath string) {
 		}
 		r := *results
 		if len(r) > 0 {
+			// FIXME: latest_version may not latest version.
 			fmt.Printf("%s:%s\n", r[0].Name, r[0].LatestVesrsion)
 		}
 	}
