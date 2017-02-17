@@ -2,7 +2,7 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/kwmt/libver)](https://goreportcard.com/report/github.com/kwmt/libver)
 
 
-This is a tool that fetch latest library version in build.gradle file.
+This is a tool that fetch latest library version in build.gradle file of Android.
 
 
 ## Usage 
